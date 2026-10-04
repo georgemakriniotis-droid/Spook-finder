@@ -2,18 +2,14 @@
 -- SPOOKY / SINISTER TREE FINDER
 --========================================================
 
-----------------------------------------------------------
--- CONFIG
-----------------------------------------------------------
+---------------- CONFIG ----------------
 
 local SCRIPT_URL =
     "https://raw.githubusercontent.com/georgemakriniotis-droid/Spook-finder/refs/heads/main/SpookyFinder.lua"
 
 getgenv().webhook = "-"
 
-----------------------------------------------------------
--- SERVICES
-----------------------------------------------------------
+---------------- SERVICES ----------------
 
 local Players = game:GetService("Players")
 local HttpService = game:GetService("HttpService")
@@ -24,40 +20,25 @@ local CoreGui = game:GetService("CoreGui")
 local LocalPlayer = Players.LocalPlayer
 local PlaceID = game.PlaceId
 
-----------------------------------------------------------
--- VARIABLES
-----------------------------------------------------------
+---------------- VARIABLES ----------------
 
 local foundAnything = ""
-
 local AllIDs = {}
-
-local Tree = nil
-local Tree2 = nil
-
 local stopped = false
-local teleportQueued = false
 
-----------------------------------------------------------
--- UI
-----------------------------------------------------------
+---------------- UI ----------------
 
 pcall(function()
     local old = CoreGui:FindFirstChild("SpookyFinderUI")
-
-    if old then
-        old:Destroy()
-    end
+    if old then old:Destroy() end
 end)
 
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "SpookyFinderUI"
 ScreenGui.ResetOnSpawn = false
-ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 ScreenGui.Parent = CoreGui
 
 local Main = Instance.new("Frame")
-Main.Name = "Main"
 Main.Size = UDim2.fromOffset(310, 110)
 Main.Position = UDim2.fromOffset(30, 150)
 Main.BackgroundColor3 = Color3.fromRGB(25, 25, 30)
@@ -65,13 +46,10 @@ Main.BorderSizePixel = 0
 Main.Active = true
 Main.Parent = ScreenGui
 
-local Corner = Instance.new("UICorner")
-Corner.CornerRadius = UDim.new(0, 10)
-Corner.Parent = Main
+Instance.new("UICorner", Main).CornerRadius = UDim.new(0, 10)
 
 local Stroke = Instance.new("UIStroke")
 Stroke.Color = Color3.fromRGB(65, 65, 75)
-Stroke.Thickness = 1
 Stroke.Parent = Main
 
 local Title = Instance.new("TextLabel")
@@ -79,14 +57,13 @@ Title.Size = UDim2.new(1, -20, 0, 32)
 Title.Position = UDim2.fromOffset(10, 5)
 Title.BackgroundTransparency = 1
 Title.Text = "Spooky Tree Finder"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextColor3 = Color3.new(1, 1, 1)
 Title.TextSize = 19
 Title.Font = Enum.Font.GothamBold
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Main
 
 local Status = Instance.new("TextLabel")
-Status.Name = "Status"
 Status.Size = UDim2.new(1, -20, 0, 30)
 Status.Position = UDim2.fromOffset(10, 40)
 Status.BackgroundTransparency = 1
@@ -98,44 +75,34 @@ Status.TextXAlignment = Enum.TextXAlignment.Left
 Status.Parent = Main
 
 local ServerStatus = Instance.new("TextLabel")
-ServerStatus.Name = "ServerStatus"
 ServerStatus.Size = UDim2.new(1, -20, 0, 25)
 ServerStatus.Position = UDim2.fromOffset(10, 73)
 ServerStatus.BackgroundTransparency = 1
-ServerStatus.Text = "Scanning current server..."
+ServerStatus.Text = "Starting..."
 ServerStatus.TextColor3 = Color3.fromRGB(170, 170, 180)
 ServerStatus.TextSize = 12
 ServerStatus.Font = Enum.Font.Gotham
 ServerStatus.TextXAlignment = Enum.TextXAlignment.Left
 ServerStatus.Parent = Main
 
-local function SetStatus(text, good)
-
-    Status.Text = "● " .. text
-
-    if good then
-        Status.TextColor3 =
-            Color3.fromRGB(80, 255, 120)
-    else
-        Status.TextColor3 =
-            Color3.fromRGB(255, 90, 90)
-    end
+local function SetStatus(message, good)
+    Status.Text = "● " .. message
+    Status.TextColor3 = good
+        and Color3.fromRGB(80, 255, 120)
+        or Color3.fromRGB(255, 90, 90)
 end
 
-local function SetServerStatus(text)
-    ServerStatus.Text = text
+local function SetServerStatus(message)
+    ServerStatus.Text = message
 end
 
-----------------------------------------------------------
--- DRAGGABLE UI
-----------------------------------------------------------
+---------------- DRAGGING ----------------
 
 local dragging = false
-local dragStart = nil
-local startPosition = nil
+local dragStart
+local startPosition
 
 Main.InputBegan:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
@@ -146,7 +113,6 @@ Main.InputBegan:Connect(function(input)
 end)
 
 Main.InputEnded:Connect(function(input)
-
     if input.UserInputType == Enum.UserInputType.MouseButton1
         or input.UserInputType == Enum.UserInputType.Touch then
 
@@ -155,10 +121,7 @@ Main.InputEnded:Connect(function(input)
 end)
 
 UserInputService.InputChanged:Connect(function(input)
-
-    if not dragging then
-        return
-    end
+    if not dragging then return end
 
     if input.UserInputType ~= Enum.UserInputType.MouseMovement
         and input.UserInputType ~= Enum.UserInputType.Touch then
@@ -170,68 +133,42 @@ UserInputService.InputChanged:Connect(function(input)
     Main.Position = UDim2.new(
         startPosition.X.Scale,
         startPosition.X.Offset + delta.X,
-
         startPosition.Y.Scale,
         startPosition.Y.Offset + delta.Y
     )
 end)
 
-----------------------------------------------------------
--- SERVER HISTORY
-----------------------------------------------------------
+---------------- SERVER HISTORY ----------------
 
 local actualHour = os.date("!*t").hour
 
 local loadedFile, fileData = pcall(function()
-
     return HttpService:JSONDecode(
         readfile("NotSameServers.json")
     )
-
 end)
 
-if loadedFile and type(fileData) == "table" then
+if loadedFile
+    and type(fileData) == "table"
+    and tonumber(fileData[1]) == actualHour then
 
     AllIDs = fileData
-
 else
-
-    AllIDs = {
-        actualHour
-    }
-
-end
-
-if tonumber(AllIDs[1]) ~= actualHour then
-
-    AllIDs = {
-        actualHour
-    }
-
-    pcall(function()
-        delfile("NotSameServers.json")
-    end)
+    AllIDs = { actualHour }
 end
 
 local function SaveIDs()
-
     pcall(function()
-
         writefile(
             "NotSameServers.json",
             HttpService:JSONEncode(AllIDs)
         )
-
     end)
 end
 
 local function IsServerUsed(serverID)
-
     for i = 2, #AllIDs do
-
-        if tostring(AllIDs[i]) ==
-            tostring(serverID) then
-
+        if tostring(AllIDs[i]) == tostring(serverID) then
             return true
         end
     end
@@ -239,135 +176,78 @@ local function IsServerUsed(serverID)
     return false
 end
 
-----------------------------------------------------------
--- TELEPORT QUEUE
-----------------------------------------------------------
--- THIS IS THE WORKING METHOD FROM TEST 1.
---
--- The hook is installed immediately when the script starts.
--- When Roblox begins teleporting, it queues this same script
--- to run in the next server.
+---------------- QUEUE RELAUNCH ----------------
+-- Uses the exact one-argument queue method from Test 1.
+-- Called immediately BEFORE the teleport.
 
 local queueTeleport =
     queue_on_teleport
     or (syn and syn.queue_on_teleport)
     or (fluxus and fluxus.queue_on_teleport)
 
-if queueTeleport then
+local function QueueRelaunch()
 
-    LocalPlayer.OnTeleport:Connect(function(state)
+    if not SCRIPT_URL
+        or SCRIPT_URL == ""
+        or SCRIPT_URL == "-"
+        or SCRIPT_URL == "PASTE_YOUR_RAW_GITHUB_URL_HERE" then
 
-        if state ~= Enum.TeleportState.Started then
-            return
-        end
+        SetStatus("Script URL is missing!", false)
+        SetServerStatus("Set the raw GitHub URL at the top.")
+        return false
+    end
 
-        if teleportQueued then
-            return
-        end
+    if not queueTeleport then
+        SetStatus("Queue function unavailable!", false)
+        SetServerStatus("queue_on_teleport was not found.")
+        return false
+    end
 
-        if stopped then
-            return
-        end
+    local source = string.format(
+        'loadstring(game:HttpGet(%q))()',
+        SCRIPT_URL
+    )
 
-        teleportQueued = true
-
-        local source =
-            'loadstring(game:HttpGet("'
-            .. SCRIPT_URL
-            .. '"))()'
-
-        local success, err = pcall(function()
-
-            queueTeleport(source)
-
-        end)
-
-        if success then
-
-            SetStatus(
-                "Teleport queued",
-                true
-            )
-
-            SetServerStatus(
-                "Script will relaunch in new server."
-            )
-
-        else
-
-            teleportQueued = false
-
-            SetStatus(
-                "Queue failed!",
-                false
-            )
-
-            SetServerStatus(
-                tostring(err)
-            )
-        end
+    local ok, err = pcall(function()
+        queueTeleport(source)
     end)
 
-else
+    if not ok then
+        SetStatus("Queue failed!", false)
+        SetServerStatus(tostring(err))
+        warn("[SpookyFinder] Queue error:", err)
+        return false
+    end
 
-    SetStatus(
-        "queue_on_teleport unavailable!",
-        false
-    )
-
-    SetServerStatus(
-        "Your executor does not provide queue_on_teleport."
-    )
+    SetStatus("Script queued", true)
+    SetServerStatus("Relaunch prepared.")
+    return true
 end
 
-----------------------------------------------------------
--- FIND TREES
-----------------------------------------------------------
+---------------- FIND TREES ----------------
 
 local function FindTrees()
 
     local normalTree = nil
     local neonTree = nil
 
-    for _, region in ipairs(
-        workspace:GetChildren()
-    ) do
-
+    for _, region in ipairs(workspace:GetChildren()) do
         if region.Name == "TreeRegion" then
 
-            for _, tree in ipairs(
-                region:GetChildren()
-            ) do
+            for _, tree in ipairs(region:GetChildren()) do
 
-                local treeClass =
-                    tree:FindFirstChild("TreeClass")
+                local treeClass = tree:FindFirstChild("TreeClass")
+                local woodSection = tree:FindFirstChild("WoodSection")
+                local owner = tree:FindFirstChild("Owner")
 
-                local woodSection =
-                    tree:FindFirstChild("WoodSection")
+                if treeClass and woodSection and owner
+                    and owner.Value == nil then
 
-                local owner =
-                    tree:FindFirstChild("Owner")
+                    if treeClass.Value == "Spooky" then
+                        normalTree = normalTree or tree
 
-                if treeClass
-                    and woodSection
-                    and owner then
-
-                    -- Only unclaimed trees
-                    if owner.Value == nil then
-
-                        if treeClass.Value == "Spooky" then
-
-                            if not normalTree then
-                                normalTree = tree
-                            end
-
-                        elseif treeClass.Value == "SpookyNeon" then
-
-                            if not neonTree then
-                                neonTree = tree
-                            end
-
-                        end
+                    elseif treeClass.Value == "SpookyNeon" then
+                        neonTree = neonTree or tree
                     end
                 end
             end
@@ -377,144 +257,62 @@ local function FindTrees()
     return normalTree, neonTree
 end
 
-----------------------------------------------------------
--- TREE SIZE
-----------------------------------------------------------
+---------------- TREE SIZE ----------------
 
 local function GetTreeSize(tree)
+    local wood = tree and tree:FindFirstChild("WoodSection")
+    if not wood then return 0 end
 
-    if not tree then
-        return 0
-    end
-
-    local wood =
-        tree:FindFirstChild("WoodSection")
-
-    if not wood then
-        return 0
-    end
-
-    -- Same formula as your original script
-    return wood.Size.Y /
-        (
-            1 /
-            (
-                wood.Size.X
-                * wood.Size.Z
-            )
-        )
+    return wood.Size.X * wood.Size.Y * wood.Size.Z
 end
 
-----------------------------------------------------------
--- WEBHOOK
-----------------------------------------------------------
+---------------- WEBHOOK ----------------
 
 local function SendWebhook(tree, treeName)
 
     if not getgenv().webhook
         or getgenv().webhook == ""
         or getgenv().webhook == "-" then
-
         return
     end
 
-    local wood =
-        tree:FindFirstChild("WoodSection")
+    local wood = tree:FindFirstChild("WoodSection")
+    if not wood then return end
 
-    if not wood then
-        return
-    end
+    local pos = wood.Position
 
-    local size =
-        GetTreeSize(tree)
+    local teleportScript = string.format(
+        "game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(%.3f, %.3f, %.3f)",
+        pos.X, pos.Y, pos.Z
+    )
 
-    local pos =
-        wood.Position
-
-    local teleportScript =
-        string.format(
-            "game.Players.LocalPlayer.Character.HumanoidRootPart.CFrame = CFrame.new(%.3f, %.3f, %.3f)",
-            pos.X,
-            pos.Y,
-            pos.Z
-        )
-
-    local joinScript =
-        string.format(
-            'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)',
-            PlaceID,
-            game.JobId
-        )
+    local joinScript = string.format(
+        'game:GetService("TeleportService"):TeleportToPlaceInstance(%d, "%s", game.Players.LocalPlayer)',
+        PlaceID, game.JobId
+    )
 
     local data = {
-
-        ["content"] = "",
-
-        ["username"] =
-            treeName .. " Finder",
-
-        ["embeds"] = {
-
-            {
-
-                ["title"] =
-                    treeName .. " Found!",
-
-                ["description"] =
-                    "Size **"
-                    .. tostring(size)
-                    .. "** "
-                    .. treeName,
-
-                ["type"] = "rich",
-
-                ["footer"] = {
-
-                    ["text"] =
-                        os.date("%c")
+        content = "",
+        username = treeName .. " Finder",
+        embeds = {{
+            title = treeName .. " Found!",
+            description = "Size **" .. tostring(GetTreeSize(tree)) ..
+                "** " .. treeName,
+            type = "rich",
+            footer = { text = os.date("%c") },
+            fields = {
+                {
+                    name = "**Join script**",
+                    value = "```lua\n" .. joinScript .. "\n```",
+                    inline = true
                 },
-
-                ["fields"] = {
-
-                    {
-
-                        ["name"] =
-                            "**Join script**",
-
-                        ["value"] =
-                            "```lua\n"
-                            .. joinScript
-                            .. "\n```",
-
-                        ["inline"] = true
-                    },
-
-                    {
-
-                        ["name"] =
-                            "**Auto Claimer**",
-
-                        ["value"] =
-                            '```lua\nloadstring(game:HttpGet("https://pastebin.com/raw/uaK9gH1s"))()\n```',
-
-                        ["inline"] = false
-                    },
-
-                    {
-
-                        ["name"] =
-                            "**Teleport Script**",
-
-                        ["value"] =
-                            "```lua\n"
-                            .. teleportScript
-                            .. "\n```",
-
-                        ["inline"] = false
-                    }
+                {
+                    name = "**Teleport Script**",
+                    value = "```lua\n" .. teleportScript .. "\n```",
+                    inline = false
                 }
             }
-        }
+        }}
     }
 
     local requestFunction =
@@ -523,273 +321,200 @@ local function SendWebhook(tree, treeName)
         or (syn and syn.request)
         or HttpPost
 
-    if not requestFunction then
-        return
-    end
+    if not requestFunction then return end
 
     pcall(function()
-
         requestFunction({
-
-            Url =
-                getgenv().webhook,
-
-            Body =
-                HttpService:JSONEncode(data),
-
+            Url = getgenv().webhook,
+            Body = HttpService:JSONEncode(data),
             Method = "POST",
-
             Headers = {
-
-                ["content-type"] =
-                    "application/json"
+                ["content-type"] = "application/json"
             }
         })
     end)
 end
 
-----------------------------------------------------------
--- GET NEXT SERVER
-----------------------------------------------------------
+---------------- GET NEXT SERVER ----------------
+-- Walks through server-list pages instead of repeatedly
+-- starting over on the first page.
 
 local function GetNextServer()
 
-    local url
+    while true do
 
-    if foundAnything == "" then
+        local url
 
-        url =
-            "https://games.roblox.com/v1/games/"
-            .. PlaceID
-            .. "/servers/Public?sortOrder=Asc&limit=100"
+        if foundAnything == "" then
+            url =
+                "https://games.roblox.com/v1/games/"
+                .. PlaceID
+                .. "/servers/Public?sortOrder=Asc&limit=100"
+        else
+            url =
+                "https://games.roblox.com/v1/games/"
+                .. PlaceID
+                .. "/servers/Public?sortOrder=Asc&limit=100&cursor="
+                .. foundAnything
+        end
 
-    else
-
-        url =
-            "https://games.roblox.com/v1/games/"
-            .. PlaceID
-            .. "/servers/Public?sortOrder=Asc&limit=100&cursor="
-            .. foundAnything
-    end
-
-    local success, Site =
-        pcall(function()
-
-            return HttpService:JSONDecode(
-                game:HttpGet(url)
-            )
-
+        local ok, site = pcall(function()
+            return HttpService:JSONDecode(game:HttpGet(url))
         end)
 
-    if not success
-        or not Site
-        or not Site.data then
+        if not ok or not site or not site.data then
+            return nil, "request_error"
+        end
 
-        return nil
-    end
+        for _, server in ipairs(site.data) do
 
-    if Site.nextPageCursor
-        and Site.nextPageCursor ~= "null" then
+            local id = tostring(server.id)
 
-        foundAnything =
-            Site.nextPageCursor
+            if tonumber(server.playing)
+                < tonumber(server.maxPlayers)
+                and not IsServerUsed(id) then
 
-    else
+                foundAnything = site.nextPageCursor or ""
+                if foundAnything == "null" then
+                    foundAnything = ""
+                end
 
-        foundAnything = ""
-    end
-
-    for _, server in ipairs(
-        Site.data
-    ) do
-
-        local ID =
-            tostring(server.id)
-
-        if tonumber(server.maxPlayers)
-            > tonumber(server.playing) then
-
-            if not IsServerUsed(ID) then
-
-                return ID
+                return id
             end
         end
-    end
 
-    return nil
+        local cursor = site.nextPageCursor
+
+        if cursor and cursor ~= "" and cursor ~= "null" then
+            foundAnything = cursor
+        else
+            foundAnything = ""
+            return nil, "exhausted"
+        end
+    end
 end
 
-----------------------------------------------------------
--- WAIT FOR GAME
-----------------------------------------------------------
+---------------- WAIT FOR GAME ----------------
 
 repeat
     task.wait()
 until game:IsLoaded()
 
-----------------------------------------------------------
--- WAIT FOR TREE REGIONS
-----------------------------------------------------------
-
 task.wait(2)
 
-----------------------------------------------------------
--- START
-----------------------------------------------------------
-
-SetStatus(
-    "Script is working",
-    true
-)
-
-SetServerStatus(
-    "Scanning current server..."
-)
-
-----------------------------------------------------------
--- MAIN LOOP
-----------------------------------------------------------
+---------------- MAIN LOOP ----------------
 
 while not stopped do
 
-    ------------------------------------------------------
-    -- FIND TARGETS
-    ------------------------------------------------------
+    SetStatus("Script is working", true)
+    SetServerStatus("Scanning current server...")
 
-    Tree, Tree2 =
-        FindTrees()
+    local Tree, Tree2 = FindTrees()
 
-    ------------------------------------------------------
-    -- SINISTER / NEON FOUND
-    ------------------------------------------------------
-
+    -- Give Sinister/Neon priority
     if Tree2 then
-
         stopped = true
-
-        SetStatus(
-            "SINISTER WOOD FOUND!",
-            true
-        )
-
-        SetServerStatus(
-            "Server hopping stopped."
-        )
-
-        SendWebhook(
-            Tree2,
-            "Sinister Wood"
-        )
-
+        SetStatus("SINISTER WOOD FOUND!", true)
+        SetServerStatus("Server hopping stopped.")
+        SendWebhook(Tree2, "Sinister Wood")
         break
     end
-
-    ------------------------------------------------------
-    -- NORMAL SPOOK FOUND
-    ------------------------------------------------------
 
     if Tree then
-
         stopped = true
-
-        SetStatus(
-            "SPOOK WOOD FOUND!",
-            true
-        )
-
-        SetServerStatus(
-            "Server hopping stopped."
-        )
-
-        SendWebhook(
-            Tree,
-            "Spook Wood"
-        )
-
+        SetStatus("SPOOK WOOD FOUND!", true)
+        SetServerStatus("Server hopping stopped.")
+        SendWebhook(Tree, "Spook Wood")
         break
     end
 
-    ------------------------------------------------------
-    -- NO TREE
-    ------------------------------------------------------
+    ---------------- NO TREE: FIND SERVER ----------------
 
-    SetStatus(
-        "Script is working",
-        true
-    )
+    SetServerStatus("No tree found • Finding server...")
 
-    SetServerStatus(
-        "No tree found • Finding server..."
-    )
+    local serverID
+    local findError
 
-    ------------------------------------------------------
-    -- FIND SERVER
-    ------------------------------------------------------
+    while not serverID and not stopped do
 
-    local ServerID = nil
+        serverID, findError = GetNextServer()
 
-    repeat
+        if not serverID then
 
-        local success, result =
-            pcall(
-                GetNextServer
-            )
+            if findError == "exhausted" then
+                -- We've reached the end of the server list.
+                -- Clear history to allow another search cycle.
+                AllIDs = { actualHour }
+                SaveIDs()
+                foundAnything = ""
+                SetServerStatus("Refreshing server list...")
+                task.wait(1)
 
-        if success then
-            ServerID = result
+            else
+                SetServerStatus("Server list request failed; retrying...")
+                task.wait(3)
+            end
         end
-
-        if not ServerID then
-
-            foundAnything = ""
-
-            SetServerStatus(
-                "Refreshing server list..."
-            )
-
-            task.wait(1)
-        end
-
-    until ServerID ~= nil or stopped
-
-    if stopped then
-        break
     end
 
-    ------------------------------------------------------
-    -- SAVE SERVER
-    ------------------------------------------------------
+    if stopped then break end
 
-    table.insert(
-        AllIDs,
-        ServerID
-    )
-
+    table.insert(AllIDs, serverID)
     SaveIDs()
 
-    ------------------------------------------------------
-    -- HOP
-    ------------------------------------------------------
+    ---------------- QUEUE FIRST, THEN HOP ----------------
 
-    SetStatus(
-        "Server hopping...",
-        true
-    )
+    SetStatus("Preparing server hop...", true)
+    SetServerStatus("Queueing script before teleport...")
 
-    SetServerStatus(
-        "Teleporting to new server..."
-    )
+    if not QueueRelaunch() then
+        -- Do not teleport if the relaunch wasn't queued.
+        break
+    end
 
-    pcall(function()
+    task.wait(0.5)
 
-        TeleportService:TeleportToPlaceInstance(
-            PlaceID,
-            ServerID,
-            LocalPlayer
-        )
+    SetStatus("Server hopping...", true)
+    SetServerStatus("Teleporting to the next server...")
 
+    local teleportStarted = false
+
+    -- Track the teleport only to detect whether it starts.
+    -- Queueing itself is done above, before the teleport call.
+    local connection = LocalPlayer.OnTeleport:Connect(function(state)
+        if state == Enum.TeleportState.Started then
+            teleportStarted = true
+        end
     end)
 
-    -- The OnTeleport event above handles the relaunch.
-    break
+    local teleportOK, teleportError = pcall(function()
+        TeleportService:TeleportToPlaceInstance(
+            PlaceID,
+            serverID,
+            LocalPlayer
+        )
+    end)
+
+    if teleportOK then
+        -- Wait briefly for the teleport to begin.
+        for _ = 1, 50 do
+            if teleportStarted then break end
+            task.wait(0.1)
+        end
+    end
+
+    connection:Disconnect()
+
+    if teleportStarted then
+        -- The queued copy should run in the destination server.
+        break
+    end
+
+    SetStatus("Teleport did not start", false)
+    SetServerStatus(
+        teleportOK and "No teleport event detected; retrying."
+        or tostring(teleportError)
+    )
+
+    task.wait(2)
 end
